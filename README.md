@@ -19,21 +19,29 @@ DSH 的系统提示词和提醒由 Harness 组装，用户能调的只有 `AGENT
 
 | 文件 | 作用 |
 | --- | --- |
-| `system.md` | 整份系统提示词。设置 `complete: true`，组装后**只有这一段**，Harness 原提示词不再拼接 |
+| `system.md` | 整份系统提示词。有内容时组装后**只有这一段**，Harness 原提示词不再拼接；没有或只有空白时保留 Harness 原提示词 |
 | `runtime-context.md` | 追加一段运行时上下文，Harness 保存为 user 角色的上下文快照 |
 | `turn-reminder.md` | 每轮开头追加一条 `<system-reminder>`；同轮内文件改动后会在下一步再追加一次 |
 | `agents-reminder.md` | 替换官方 `AGENTS.md` 消息的包装文字；**必须包含 `{{instructions}}`** |
 
 `system.md` 里 `{{cwd}}` 会替换成当前会话的绝对工作目录，其他占位符原样保留。
+文件内容只有 `{{default}}` 一个 token 时表示放弃接管，保留 Harness 原提示词。
 
 保存后 `fs.watch` 清除缓存，后续模型请求读到新内容。目录还不存在时，插件监视最近的
 已有祖先目录，目录建成后自动切过去。单个文件上限 1 MiB。
 
-三种失败都明确报错，不静默降级：文件读取失败、`agents-reminder.md` 缺
-`{{instructions}}`、`system.md` 缺失或为空。空的 `runtime-context.md` 和
-`turn-reminder.md` 只是不产生文本，不算错误。
+报错只留三种，其余按「没写」处理：文件读取失败、`agents-reminder.md` 缺
+`{{instructions}}`、`system.md` 与 preset 的 `complete` 段冲突（见下）。`runtime-context.md`
+和 `turn-reminder.md` 没写或为空时只是不产生文本。
 
-项目里放一个**空的** `system.md` 会屏蔽全局文件——此时组装报错，不会悄悄回落到全局。
+**没建 `system.md` 就用 Harness 原提示词**——新装即能用，接管是选择而不是前提。
+判据是内容非空：内容为空的文件（包括项目里刚建的空占位文件）算「没写」，既不
+报错也不屏蔽全局文件；要屏蔽全局文件并保留 Harness 原提示词，把内容写成
+`{{default}}`。
+
+preset 若自带整份提示词（`complete` 段，如 `preset-minimal` 的人格段），组装会在
+本插件之后恢复它，`system.md` 会被丢弃。这种情况直接报错并指出那个段的名字，不
+静默忽略。
 
 `agents-reminder.md` 的模板示例：
 
@@ -57,8 +65,9 @@ DSH 的系统提示词和提醒由 Harness 组装，用户能调的只有 `AGENT
 - 官方渲染没有可替换的公共接口，所以本插件匹配当前版本的固定包装字符串。
   **DSH 改变这些字符串时需要同步更新。**
 
-`system.md` 用 `complete: true` 是为了保证组装后只剩这一段。工具定义和动态运行时
-上下文不受影响，继续由 Harness 提供。
+`system.md` 接管后组装只剩这一段，是为了保证没有 Harness 原提示词混进来。工具定义和
+动态运行时上下文不受影响，继续由 Harness 提供。接管与否每次组装重新判断：文件中途
+新建、清空或删除，下一次模型请求就跟着变，不用重启。
 
 ## 安装
 
