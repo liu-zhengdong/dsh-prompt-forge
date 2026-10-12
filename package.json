@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt-forge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "用文件定制 DSH 的系统提示词、运行时上下文与每轮提醒。",
   "type": "module",
   "keywords": [
